@@ -46,8 +46,8 @@ switch ($action) {
                 echo json_encode(['error' => 'Accesso negato o foglio non trovato']);
             }
         } else {
-            // Tutti i fogli dell’utente
-            $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ?");
+            // Tutti i fogli dell’utente, dal più recente al più vecchio
+$stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY data_creazione DESC");
             $stmt->bind_param("i", $user_id);
             $stmt->execute();
             $result = $stmt->get_result();

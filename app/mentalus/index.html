@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+  <div class="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
+    <h2 class="text-3xl font-bold text-center text-gray-800">Mentalus</h2>
+    <h2 class="text-xl font-bold text-center mt-3 mb-3">Login</h2>
+
+    <form id="loginForm" class="space-y-4">
+      <input type="email" name="email" placeholder="Email" required
+        class="w-full p-3 border rounded-md focus:outline-none focus:ring focus:ring-blue-300" />
+      <input type="password" name="password" placeholder="Password" required
+        class="w-full p-3 border rounded-md focus:outline-none focus:ring focus:ring-blue-300" />
+      <button type="submit"
+        class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition">Accedi</button>
+    </form>
+
+    <p id="loginError" class="text-red-500 text-center mt-4 hidden">Errore di login</p>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('/login.php', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = "/app/mentalus/dashboard.html";
+      } else {
+        document.getElementById("loginError").textContent = data.error || "Login fallito";
+        document.getElementById("loginError").classList.remove("hidden");
+      }
+    });
+  </script>
+</body>
+</html>

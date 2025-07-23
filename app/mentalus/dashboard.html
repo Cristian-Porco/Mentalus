@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard con fogli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <div class="max-w-4xl mx-auto py-10 px-6">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-3xl font-bold text-gray-800">Mentalus</h2>
+      <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+    </div>
+
+    <!-- Aggiungi Foglio -->
+    <form id="addForm" class="flex gap-4 mb-6">
+      <input type="text" name="titolo" placeholder="Nuovo titolo" required
+        class="flex-grow p-3 border rounded-md focus:outline-none focus:ring focus:ring-blue-300" />
+      <button type="submit"
+        class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition">Aggiungi</button>
+    </form>
+
+    <h2 class="text-xl font-bold mb-3">I miei fogli di testo</h2>
+    <!-- Lista fogli -->
+    <div id="sheetList" class="space-y-3"></div>
+  </div>
+
+  <script>
+    async function fetchSheets() {
+      const res = await fetch('/text_sheets.php?action=view', { credentials: 'include' });
+      const data = await res.json();
+      const container = document.getElementById("sheetList");
+      container.innerHTML = "";
+
+      for (const sheet of data) {
+        const sheetDiv = document.createElement("div");
+        sheetDiv.className = "bg-white rounded-lg shadow p-4";
+
+        const header = document.createElement("div");
+        header.className = "flex justify-between items-center mb-1";
+
+        const titleBlock = document.createElement("div");
+
+        const link = document.createElement("a");
+        link.href = `/app/mentalus/sheet.html?id=${sheet.id}`;
+        link.className = "text-lg font-semibold text-blue-600 hover:underline";
+        link.textContent = sheet.titolo;
+
+        const createdAt = document.createElement("p");
+        createdAt.className = "text-sm text-gray-500";
+        const date = new Date(sheet.data_creazione);
+        createdAt.textContent = `Creato il ${date.toLocaleDateString()} alle ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+        titleBlock.appendChild(link);
+        titleBlock.appendChild(createdAt);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Elimina";
+        deleteBtn.className = "text-sm text-red-500 hover:text-red-700";
+        deleteBtn.onclick = () => deleteSheet(sheet.id);
+
+        header.appendChild(titleBlock);
+        header.appendChild(deleteBtn);
+        sheetDiv.appendChild(header);
+
+        container.appendChild(sheetDiv);
+      }
+    }
+
+    async function deleteSheet(id) {
+      const form = new FormData();
+      form.append("id", id);
+      await fetch('/text_sheets.php?action=remove', {
+        method: 'POST',
+        credentials: 'include',
+        body: form
+      });
+      fetchSheets();
+    }
+
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      await fetch('/text_sheets.php?action=add', {
+        method: 'POST',
+        body: form,
+        credentials: 'include'
+      });
+      e.target.reset();
+      fetchSheets();
+    });
+
+    async function logout() {
+      await fetch('/logout.php', { credentials: 'include' });
+      window.location.href = "index.html";
+    }
+
+    fetchSheets();
+  </script>
+</body>
+</html>
