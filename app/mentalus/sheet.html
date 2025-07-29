@@ -4,17 +4,46 @@
   <meta charset="UTF-8">
   <title>Paragrafi</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-  <div class="max-w-3xl mx-auto py-10 px-6">
-    <div class="flex justify-between items-start mb-6">
-      <div class="flex-1">
-        <input id="sheetTitle" type="text"
-          class="text-3xl font-bold text-gray-800 bg-transparent focus:outline-none w-full"
-          value="Titolo del foglio..." />
-        <p id="sheetDate" class="text-sm text-gray-500 mt-1">Data creazione...</p>
+  <div class="max-w-3xl mx-auto px-6">
+    <div class="sticky top-0 z-10 bg-gray-100/30 backdrop-blur border-b border-gray-300 pb-2">
+      <div class="flex justify-between items-start mb-2 pt-4">
+        <div class="flex-1">
+          <input id="sheetTitle" type="text"
+            class="text-3xl font-bold text-gray-800 bg-transparent focus:outline-none w-full"
+            value="Titolo del foglio..." />
+          <p id="sheetDate" class="text-sm text-gray-500 mt-1">Data creazione...</p>
+        </div>
+        <a href="dashboard.html" class="text-blue-600 hover:underline mt-2 whitespace-nowrap">← Torna alla dashboard</a>
       </div>
-      <a href="dashboard.html" class="text-blue-600 hover:underline mt-2">← Torna alla dashboard</a>
+    
+      <div class="flex items-center gap-4">
+        <button id="boldBtn" title="Grassetto" class="p-2 rounded hover:bg-gray-200 text-gray-800" type="button">
+          <span class="material-symbols-outlined">format_bold</span>
+        </button>
+    
+        <button id="italicBtn" title="Corsivo" class="p-2 rounded hover:bg-gray-200 text-gray-800" type="button">
+          <span class="material-symbols-outlined">format_italic</span>
+        </button>
+    
+        <button id="audioBtn"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+          type="button">
+          <span class="material-symbols-outlined">mic</span>
+          <span>Trascrizione audio</span>
+        </button>
+      </div>
     </div>
 
     <ul id="paragraphList" class="space-y-4 mb-6"></ul>
@@ -48,6 +77,7 @@
       }
       const data = await res.json();
       sheetTitle.value = data.titolo;
+      document.title = data.titolo + " | Foglio di testo - Mentalus";
       const date = new Date(data.data_creazione);
       sheetDate.textContent = `Creato il ${date.toLocaleDateString()} alle ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     }
@@ -61,7 +91,9 @@
         credentials: 'include',
         body: form
       });
-    }, 500));
+
+      document.title = sheetTitle.value + " | Foglio di testo - Mentalus";
+    }, 200));
 
     async function loadParagraphs() {
       const res = await fetch(`/paragraphs.php?action=view&sheet_id=${sheetId}`, { credentials: 'include' });
@@ -69,13 +101,87 @@
       paragraphList.innerHTML = '';
       data.forEach(p => {
         const li = document.createElement('li');
-        li.className = "bg-white p-4 rounded shadow flex justify-between items-center";
-        li.innerHTML = `
-          <span class="text-gray-700" style="text-align: justify;">${p.descrizione}</span>
-          <button onclick="deleteParagraph(${p.id})" class="text-red-500 text-sm ml-4">Elimina</button>
-        `;
+        li.className = "bg-white p-4 rounded shadow flex justify-between items-start";
+
+        // Contenitore del paragrafo
+        const container = document.createElement('div');
+        container.className = "flex-1 cursor-pointer";
+        container.innerHTML = `<span class="text-gray-700">${p.descrizione}</span>`;
+        container._clickHandler = () => {
+          editParagraph(p.id, p.descrizione, container);
+        };
+        container.addEventListener('click', container._clickHandler);
+
+        // Pulsante elimina
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = "Elimina";
+        deleteBtn.className = "text-red-500 text-sm ml-4";
+        deleteBtn.onclick = () => deleteParagraph(p.id);
+
+        li.appendChild(container);
+        li.appendChild(deleteBtn);
         paragraphList.appendChild(li);
       });
+    }
+
+    let activeTextarea = null;
+
+    function editParagraph(id, currentText, container) {
+      const heightTextAreaView = container.offsetHeight;
+      container.innerHTML = '';
+
+      const lineCount = currentText.split('\n').length;
+      const textarea = document.createElement('textarea');
+      textarea.className = "w-full p-2 border rounded focus:outline-none resize-none";
+      textarea.value = currentText;
+      textarea.rows = lineCount;
+      textarea.style.height = 'auto';
+      textarea.style.minHeight = heightTextAreaView + 50 + 'px';
+
+      container.appendChild(textarea);
+      textarea.focus();
+      activeTextarea = textarea; // 👉 traccia l'elemento attivo
+
+      container.removeEventListener('click', container._clickHandler);
+
+      const allowedElements = new Set([
+        textarea,
+        document.getElementById("boldBtn"),
+        document.getElementById("italicBtn"),
+        document.getElementById("audioBtn"),
+        ...document.getElementById("boldBtn").querySelectorAll("*"),
+        ...document.getElementById("italicBtn").querySelectorAll("*"),
+        ...document.getElementById("audioBtn").querySelectorAll("*")
+      ]);
+
+      // Gestione scorciatoie nella textarea attiva
+      textarea.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "i")) {
+          e.preventDefault();
+          const tag = e.key === "b" ? "b" : "i";
+          insertTagOnSelection(tag, textarea);
+        }
+      });
+
+      const outsideClickHandler = async (e) => {
+        if (![...allowedElements].some(el => el.contains(e.target))) {
+          document.removeEventListener('mousedown', outsideClickHandler);
+          activeTextarea = null;
+
+          const newValue = sanitizeHTML(textarea.value);
+          const form = new FormData();
+          form.append('id', id);
+          form.append('descrizione', newValue);
+          await fetch('/paragraphs.php?action=edit', {
+            method: 'POST',
+            credentials: 'include',
+            body: form
+          });
+          loadParagraphs();
+        }
+      };
+
+      document.addEventListener('mousedown', outsideClickHandler);
     }
 
     async function deleteParagraph(id) {
@@ -94,11 +200,7 @@
       const input = document.getElementById("descrizioneInput");
       let value = input.value;
 
-      // Sanifica: consenti solo <b> e <i>
-      value = value
-        .replace(/<(?!\/?(b|i)\b)[^>]*>/gi, "")
-        .replace(/</g, "<")
-        .replace(/>/g, ">");
+      value = sanitizeHTML(value);
 
       const form = new FormData();
       form.append('descrizione', value);
@@ -141,6 +243,33 @@
       }
     });
 
+    document.getElementById("descrizioneInput").addEventListener("paste", async (e) => {
+      const clipboard = e.clipboardData || window.clipboardData;
+      const pastedText = clipboard.getData('text');
+      const paragraphs = pastedText.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+
+      if (paragraphs.length <= 1) return;
+
+      e.preventDefault();
+
+      for (const paragraph of paragraphs) {
+        const value = sanitizeHTML(paragraph);
+
+        const form = new FormData();
+        form.append('descrizione', value);
+        form.append('sheet_id', sheetId);
+
+        await fetch('/paragraphs.php?action=add', {
+          method: 'POST',
+          credentials: 'include',
+          body: form
+        });
+      }
+
+      document.getElementById("descrizioneInput").value = "";
+      loadParagraphs();
+    });
+
     function sanitizeHTML(str) {
       return str
         .replace(/<(?!\/?(b|i)\b)[^>]*>/gi, "")
@@ -154,6 +283,30 @@
         clearTimeout(timeout);
         timeout = setTimeout(() => fn.apply(this, args), delay);
       };
+    }
+
+    document.getElementById("boldBtn").addEventListener("click", () => {
+      insertTagOnSelection("b", activeTextarea);
+    });
+
+    document.getElementById("italicBtn").addEventListener("click", () => {
+      insertTagOnSelection("i", activeTextarea);
+    });
+
+    function insertTagOnSelection(tag, target) {
+      const input = target || document.getElementById("descrizioneInput");
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const selectedText = input.value.substring(start, end);
+      if (!selectedText) return;
+
+      const before = input.value.substring(0, start);
+      const after = input.value.substring(end);
+      const wrapped = `<${tag}>${selectedText}</${tag}>`;
+
+      input.value = before + wrapped + after;
+      input.focus();
+      input.setSelectionRange(before.length + wrapped.length, before.length + wrapped.length);
     }
 
     loadSheetTitle();

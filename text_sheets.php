@@ -14,14 +14,22 @@ switch ($action) {
 
     case 'add':
         $titolo = $_POST['titolo'] ?? '';
+        $category = $_POST['category'] ?? null;
+
         if (!$titolo) {
             http_response_code(400);
             echo json_encode(['error' => 'Titolo mancante']);
             exit;
         }
 
-        $stmt = $conn->prepare("INSERT INTO text_sheets (titolo, user_id) VALUES (?, ?)");
-        $stmt->bind_param("si", $titolo, $user_id);
+        if ($category) {
+            $stmt = $conn->prepare("INSERT INTO text_sheets (titolo, category, user_id) VALUES (?, ?, ?)");
+            $stmt->bind_param("ssi", $titolo, $category, $user_id);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO text_sheets (titolo, user_id) VALUES (?, ?)");
+            $stmt->bind_param("si", $titolo, $user_id);
+        }
+
         if ($stmt->execute()) {
             echo json_encode(['success' => true, 'id' => $stmt->insert_id]);
         } else {
@@ -47,7 +55,7 @@ switch ($action) {
             }
         } else {
             // Tutti i fogli dell’utente, dal più recente al più vecchio
-$stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY data_creazione DESC");
+            $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY data_creazione DESC");
             $stmt->bind_param("i", $user_id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -58,6 +66,8 @@ $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY dat
     case 'edit':
         $id = $_POST['id'] ?? null;
         $titolo = $_POST['titolo'] ?? '';
+        $category = $_POST['category'] ?? null;
+
         if (!$id || !$titolo) {
             http_response_code(400);
             echo json_encode(['error' => 'ID o titolo mancante']);
@@ -74,8 +84,14 @@ $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY dat
             exit;
         }
 
-        $stmt = $conn->prepare("UPDATE text_sheets SET titolo = ?, data_modifica = NOW() WHERE id = ?");
-        $stmt->bind_param("si", $titolo, $id);
+        if ($category !== null) {
+            $stmt = $conn->prepare("UPDATE text_sheets SET titolo = ?, category = ?, data_modifica = NOW() WHERE id = ?");
+            $stmt->bind_param("ssi", $titolo, $category, $id);
+        } else {
+            $stmt = $conn->prepare("UPDATE text_sheets SET titolo = ?, data_modifica = NOW() WHERE id = ?");
+            $stmt->bind_param("si", $titolo, $id);
+        }
+
         $stmt->execute();
         echo json_encode(['success' => true]);
         break;

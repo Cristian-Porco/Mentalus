@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard con fogli</title>
+  <title>I miei fogli di testo - Mentalus</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -22,11 +22,36 @@
     </form>
 
     <h2 class="text-xl font-bold mb-3">I miei fogli di testo</h2>
-    <!-- Lista fogli -->
     <div id="sheetList" class="space-y-3"></div>
   </div>
 
+  <!-- Modale Elimina -->
+  <div id="modal-overlay" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 flex">
+    <div class="bg-white rounded-lg p-6 w-80">
+      <h3 class="text-lg font-semibold mb-4">Eliminare questo foglio?</h3>
+      <div class="flex justify-end gap-4">
+        <button id="modal-cancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Annulla</button>
+        <button id="modal-confirm" class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">Elimina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Categoria -->
+  <div id="modal-category" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 flex">
+    <div class="bg-white rounded-lg p-6 w-80">
+      <h3 class="text-lg font-semibold mb-4">Modifica categoria</h3>
+      <input id="modal-cat-input" type="text" class="w-full border p-2 rounded mb-4" placeholder="Nuova categoria" />
+      <div class="flex justify-end gap-4">
+        <button id="modal-cat-cancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Annulla</button>
+        <button id="modal-cat-confirm" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Salva</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let deleteTarget = null;
+    let categoryTarget = null;
+
     async function fetchSheets() {
       const res = await fetch('/text_sheets.php?action=view', { credentials: 'include' });
       const data = await res.json();
@@ -38,63 +63,136 @@
         sheetDiv.className = "bg-white rounded-lg shadow p-4";
 
         const header = document.createElement("div");
-        header.className = "flex justify-between items-center mb-1";
+        header.className = "flex justify-between items-start";
 
         const titleBlock = document.createElement("div");
 
-        const link = document.createElement("a");
-        link.href = `/app/mentalus/sheet.html?id=${sheet.id}`;
-        link.className = "text-lg font-semibold text-blue-600 hover:underline";
-        link.textContent = sheet.titolo;
+        const titleRow = document.createElement("div");
+titleRow.className = "flex items-center gap-2 flex-wrap";
+
+const link = document.createElement("a");
+link.href = `/app/mentalus/sheet.html?id=${sheet.id}`;
+link.className = "text-lg font-semibold text-blue-600 hover:underline";
+link.textContent = sheet.titolo;
+titleRow.appendChild(link);
+
+if (sheet.category) {
+  const categoryBadge = document.createElement("span");
+  categoryBadge.className = "text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium";
+  categoryBadge.textContent = sheet.category;
+  titleRow.appendChild(categoryBadge);
+}
+
+titleBlock.appendChild(titleRow);
 
         const createdAt = document.createElement("p");
         createdAt.className = "text-sm text-gray-500";
         const date = new Date(sheet.data_creazione);
         createdAt.textContent = `Creato il ${date.toLocaleDateString()} alle ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-
-        titleBlock.appendChild(link);
         titleBlock.appendChild(createdAt);
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Elimina";
-        deleteBtn.className = "text-sm text-red-500 hover:text-red-700";
-        deleteBtn.onclick = () => deleteSheet(sheet.id);
+        // Dropdown
+        const menuWrapper = document.createElement("div");
+        menuWrapper.className = "relative";
+
+        const menuBtn = document.createElement("button");
+        menuBtn.textContent = "⋮";
+        menuBtn.className = "text-gray-500 hover:text-gray-700 text-xl px-2 focus:outline-none";
+
+        const dropdown = document.createElement("div");
+        dropdown.className = "absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg hidden z-20";
+        dropdown.innerHTML = `
+          <button class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm" data-action="category">Categoria</button>
+          <button class="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-red-600" data-action="delete">Elimina</button>
+        `;
+
+        menuBtn.onclick = () => {
+          dropdown.classList.toggle("hidden");
+        };
+
+        dropdown.querySelector('[data-action="category"]').onclick = () => {
+          categoryTarget = sheet;
+          document.getElementById("modal-cat-input").value = sheet.category || '';
+          document.getElementById("modal-category").classList.remove("hidden");
+          dropdown.classList.add("hidden");
+        };
+
+        dropdown.querySelector('[data-action="delete"]').onclick = () => {
+          deleteTarget = sheet;
+          document.getElementById("modal-overlay").classList.remove("hidden");
+          dropdown.classList.add("hidden");
+        };
+
+        menuWrapper.appendChild(menuBtn);
+        menuWrapper.appendChild(dropdown);
 
         header.appendChild(titleBlock);
-        header.appendChild(deleteBtn);
+        header.appendChild(menuWrapper);
         sheetDiv.appendChild(header);
-
         container.appendChild(sheetDiv);
       }
     }
-
-    async function deleteSheet(id) {
-      const form = new FormData();
-      form.append("id", id);
-      await fetch('/text_sheets.php?action=remove', {
-        method: 'POST',
-        credentials: 'include',
-        body: form
-      });
-      fetchSheets();
-    }
-
-    document.getElementById("addForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const form = new FormData(e.target);
-      await fetch('/text_sheets.php?action=add', {
-        method: 'POST',
-        body: form,
-        credentials: 'include'
-      });
-      e.target.reset();
-      fetchSheets();
-    });
 
     async function logout() {
       await fetch('/logout.php', { credentials: 'include' });
       window.location.href = "index.html";
     }
+
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+
+      const res = await fetch('/text_sheets.php?action=add', {
+        method: 'POST',
+        body: form,
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.id) {
+        window.location.href = `/app/mentalus/sheet.html?id=${data.id}`;
+      } else {
+        alert("Errore durante la creazione del foglio.");
+      }
+    });
+
+    // Modale elimina
+    document.getElementById("modal-confirm").addEventListener("click", async () => {
+      if (!deleteTarget) return;
+      const form = new FormData();
+      form.append("id", deleteTarget.id);
+      await fetch('/text_sheets.php?action=remove', {
+        method: 'POST',
+        credentials: 'include',
+        body: form
+      });
+      document.getElementById("modal-overlay").classList.add("hidden");
+      fetchSheets();
+    });
+    document.getElementById("modal-cancel").addEventListener("click", () => {
+      document.getElementById("modal-overlay").classList.add("hidden");
+    });
+
+    // Modale categoria
+    document.getElementById("modal-cat-confirm").addEventListener("click", async () => {
+      if (!categoryTarget) return;
+      const nuova = document.getElementById("modal-cat-input").value;
+      const form = new FormData();
+      form.append("id", categoryTarget.id);
+      form.append("titolo", categoryTarget.titolo);
+      form.append("category", nuova);
+      await fetch('/text_sheets.php?action=edit', {
+        method: 'POST',
+        credentials: 'include',
+        body: form
+      });
+      document.getElementById("modal-category").classList.add("hidden");
+      fetchSheets();
+    });
+    document.getElementById("modal-cat-cancel").addEventListener("click", () => {
+      document.getElementById("modal-category").classList.add("hidden");
+    });
 
     fetchSheets();
   </script>
