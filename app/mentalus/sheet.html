@@ -36,13 +36,6 @@
         <button id="italicBtn" title="Corsivo" class="p-2 rounded hover:bg-gray-200 text-gray-800" type="button">
           <span class="material-symbols-outlined">format_italic</span>
         </button>
-    
-        <button id="audioBtn"
-          class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-          type="button">
-          <span class="material-symbols-outlined">mic</span>
-          <span>Trascrizione audio</span>
-        </button>
       </div>
     </div>
 
@@ -148,10 +141,8 @@
         textarea,
         document.getElementById("boldBtn"),
         document.getElementById("italicBtn"),
-        document.getElementById("audioBtn"),
         ...document.getElementById("boldBtn").querySelectorAll("*"),
         ...document.getElementById("italicBtn").querySelectorAll("*"),
-        ...document.getElementById("audioBtn").querySelectorAll("*")
       ]);
 
       // Gestione scorciatoie nella textarea attiva

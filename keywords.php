@@ -160,6 +160,28 @@ switch ($action) {
         echo json_encode(['success' => true]);
         break;
 
+    case 'search':
+        $query = $_GET['query'] ?? '';
+        if (!$query) {
+            http_response_code(400);
+            echo json_encode([]);
+            exit;
+        }
+    
+        // Cerca keyword esatta e ritorna paragrafi + titolo del foglio
+        $stmt = $conn->prepare("
+            SELECT p.descrizione, s.titolo AS sheet_title
+            FROM keywords k
+            JOIN paragraphs p ON k.paragraph_id = p.id
+            JOIN text_sheets s ON p.sheet_id = s.id
+            WHERE k.parola = ? AND s.user_id = ?
+        ");
+        $stmt->bind_param("si", $query, $user_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        echo json_encode($res->fetch_all(MYSQLI_ASSOC));
+        break;
+
     default:
         http_response_code(400);
         echo json_encode(['error' => 'Azione non valida']);

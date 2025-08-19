@@ -11,7 +11,6 @@ $action = $_GET['action'] ?? '';
 $user_id = $_SESSION['user_id'];
 
 switch ($action) {
-
     case 'add':
         $titolo = $_POST['titolo'] ?? '';
         $category = $_POST['category'] ?? null;
@@ -39,8 +38,9 @@ switch ($action) {
         break;
 
     case 'view':
+        $category = $_GET['category'] ?? null;
+
         if (isset($_GET['id'])) {
-            // Singolo foglio
             $id = intval($_GET['id']);
             $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE id = ? AND user_id = ?");
             $stmt->bind_param("ii", $id, $user_id);
@@ -54,9 +54,14 @@ switch ($action) {
                 echo json_encode(['error' => 'Accesso negato o foglio non trovato']);
             }
         } else {
-            // Tutti i fogli dell’utente, dal più recente al più vecchio
-            $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY data_creazione DESC");
-            $stmt->bind_param("i", $user_id);
+            if ($category) {
+                $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? AND category = ? ORDER BY data_creazione DESC");
+                $stmt->bind_param("is", $user_id, $category);
+            } else {
+                $stmt = $conn->prepare("SELECT * FROM text_sheets WHERE user_id = ? ORDER BY data_creazione DESC");
+                $stmt->bind_param("i", $user_id);
+            }
+
             $stmt->execute();
             $result = $stmt->get_result();
             echo json_encode($result->fetch_all(MYSQLI_ASSOC));
@@ -74,7 +79,6 @@ switch ($action) {
             exit;
         }
 
-        // Verifica proprietà del foglio
         $check = $conn->prepare("SELECT id FROM text_sheets WHERE id = ? AND user_id = ?");
         $check->bind_param("ii", $id, $user_id);
         $check->execute();
@@ -104,7 +108,6 @@ switch ($action) {
             exit;
         }
 
-        // Verifica proprietà del foglio
         $check = $conn->prepare("SELECT id FROM text_sheets WHERE id = ? AND user_id = ?");
         $check->bind_param("ii", $id, $user_id);
         $check->execute();
@@ -118,6 +121,16 @@ switch ($action) {
         $stmt->bind_param("i", $id);
         $stmt->execute();
         echo json_encode(['success' => true]);
+        break;
+
+    case 'categories':
+        $stmt = $conn->prepare("SELECT DISTINCT category FROM text_sheets WHERE user_id = ? AND category IS NOT NULL AND category != ''");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $rows = $result->fetch_all(MYSQLI_ASSOC);
+        $categories = array_map(fn($r) => $r['category'], $rows);
+        echo json_encode($categories);
         break;
 
     default:
