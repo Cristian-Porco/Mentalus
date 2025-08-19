@@ -1,5 +1,5 @@
 <?php
-include 'config.php';
+include '../config/db.php';
 
 $nome = $_POST['nome'] ?? '';
 $cognome = $_POST['cognome'] ?? '';

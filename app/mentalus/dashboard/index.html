@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard | Mentalus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100">
+
+  <!-- App layout: header fisso + main scrollabile -->
+  <div class="min-h-screen grid grid-rows-[auto,1fr] overflow-hidden">
+
+    <!-- Navbar -->
+    <header class="row-start-1 row-end-2 sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+          <a href="/app/mentalus/dashboard" class="flex items-center gap-2">
+            <span class="text-2xl font-extrabold tracking-tight">Mentalus</span>
+          </a>
+
+          <nav class="hidden md:flex items-center gap-3">
+            <a href="/app/mentalus/dashboard" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">Dashboard</a>
+            <a href="/app/mentalus/dashboard/search-keyword" class="px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700">Cerca parole chiave</a>
+            <button onclick="logout()"
+              class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Logout</button>
+          </nav>
+
+          <button id="menuBtn" class="md:hidden px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700" aria-label="Apri menu">
+            ☰
+          </button>
+        </div>
+        <!-- Mobile menu -->
+        <div id="mobileMenu" class="md:hidden hidden pt-2 pb-3 space-y-1">
+          <a href="/app/mentalus/dashboard" class="block px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">Dashboard</a>
+          <a href="/app/mentalus/dashboard/search-keyword" class="block px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700">Cerca parole chiave</a>
+          <button onclick="logout()" class="w-full text-left px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenuto: unico contenitore scrollabile -->
+    <main class="row-start-2 row-end-3 overflow-y-auto">
+      <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Hero / Azioni -->
+        <section class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between mb-6">
+          <div>
+            <h1 class="text-3xl font-bold">I miei fogli</h1>
+            <p class="text-slate-400">Crea, filtra e gestisci i tuoi fogli di testo.</p>
+          </div>
+        </section>
+
+        <!-- Aggiungi Foglio -->
+        <section class="mb-6">
+          <form id="addForm" class="flex flex-col sm:flex-row gap-3">
+            <input type="text" name="titolo" placeholder="Nuovo titolo" required
+              class="flex-1 p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <button type="submit"
+              class="px-5 py-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition">
+              + Aggiungi
+            </button>
+          </form>
+        </section>
+
+        <!-- Filtri -->
+        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+          <div class="col-span-full sm:col-span-1">
+            <label for="categoryFilter" class="block text-sm font-medium mb-1">Filtra per categoria</label>
+            <select id="categoryFilter" class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-slate-100">
+              <option value="">Tutte le categorie</option>
+            </select>
+          </div>
+        </section>
+
+        <!-- Lista fogli -->
+        <section>
+          <h2 class="text-lg font-semibold mb-3">I miei fogli di testo</h2>
+          <div id="sheetList" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+
+          <!-- Empty state -->
+          <div id="emptyState" class="hidden rounded-xl border border-dashed border-slate-700 p-8 text-center bg-slate-800/40">
+            <p class="text-slate-400">Nessun foglio presente. Crea il tuo primo foglio qui sopra.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modale Elimina (centrata) -->
+  <div id="modal-overlay"
+       class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50"
+       role="dialog" aria-modal="true" aria-labelledby="modal-delete-title">
+    <div class="bg-slate-800 rounded-xl p-6 w-80 max-w-[92vw] max-h-[85vh] overflow-auto shadow-xl border border-slate-700">
+      <h3 id="modal-delete-title" class="text-lg font-semibold mb-4">Eliminare questo foglio?</h3>
+      <div class="flex justify-end gap-3">
+        <button id="modal-cancel" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600" data-autofocus>Annulla</button>
+        <button id="modal-confirm" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Elimina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Categoria (centrata) -->
+  <div id="modal-category"
+       class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50"
+       role="dialog" aria-modal="true" aria-labelledby="modal-category-title">
+    <div class="bg-slate-800 rounded-xl p-6 w-80 max-w-[92vw] max-h-[85vh] overflow-auto shadow-xl border border-slate-700">
+      <h3 id="modal-category-title" class="text-lg font-semibold mb-4">Modifica categoria</h3>
+      <input id="modal-cat-input" type="text"
+             class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-slate-100 mb-4 placeholder-slate-400"
+             placeholder="Nuova categoria" />
+      <div class="flex justify-end gap-3">
+        <button id="modal-cat-cancel" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">Annulla</button>
+        <button id="modal-cat-confirm" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700" data-autofocus>Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loader a schermo intero -->
+  <div id="pageLoader"
+       class="fixed inset-0 z-[999] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
+    <div class="flex flex-col items-center gap-4">
+      <div class="h-10 w-10 rounded-full border-4 border-slate-600 border-t-white animate-spin" aria-hidden="true"></div>
+      <p class="text-slate-200 text-sm" role="status" aria-live="polite">Caricamento…</p>
+    </div>
+  </div>
+
+  <script>
+    // Mobile menu
+    document.getElementById("menuBtn")?.addEventListener("click", () => {
+      document.getElementById("mobileMenu")?.classList.toggle("hidden");
+    });
+
+    let deleteTarget = null;
+    let categoryTarget = null;
+
+    // Loader helpers (reference counting)
+    const pageLoaderEl = document.getElementById('pageLoader');
+    let __pendingOps = 0;
+    function startLoading() {
+      __pendingOps++;
+      pageLoaderEl.classList.remove('hidden');
+    }
+    function stopLoading() {
+      __pendingOps = Math.max(0, __pendingOps - 1);
+      if (__pendingOps === 0) pageLoaderEl.classList.add('hidden');
+    }
+    function withLoader(promiseOrFn) {
+      startLoading();
+      try {
+        const p = typeof promiseOrFn === 'function' ? promiseOrFn() : promiseOrFn;
+        return Promise.resolve(p).finally(stopLoading);
+      } catch (e) {
+        stopLoading();
+        throw e;
+      }
+    }
+
+    // Helpers modali: open/close + focus/ESC/outside click
+    function openModal(id) {
+      const overlay = document.getElementById(id);
+      overlay.classList.remove("hidden");
+      // focus al primo [data-autofocus] se presente
+      const autoFocusEl = overlay.querySelector("[data-autofocus]") || overlay.querySelector("button, input, [href], textarea, select");
+      autoFocusEl?.focus();
+
+      // Chiudi su click fuori
+      const outside = (e) => {
+        if (e.target === overlay) {
+          closeModal(id);
+          overlay.removeEventListener("mousedown", outside);
+        }
+      };
+      overlay.addEventListener("mousedown", outside);
+
+      // Chiudi su ESC
+      const onEsc = (e) => {
+        if (e.key === "Escape") {
+          closeModal(id);
+          document.removeEventListener("keydown", onEsc);
+        }
+      };
+      document.addEventListener("keydown", onEsc);
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.add("hidden");
+    }
+
+    document.getElementById("categoryFilter").addEventListener("change", () => {
+      const cat = document.getElementById("categoryFilter").value;
+      withLoader(fetchSheets(cat));
+    });
+
+    async function fetchAllCategories() {
+      startLoading();
+      try {
+        let res;
+        try {
+          res = await fetch('/app/mentalus/api/text_sheets.php?action=categories', { credentials: 'include' });
+        } catch (err) {
+          console.error("Errore di rete:", err);
+          alert("Errore di connessione al server.");
+          return;
+        }
+
+        if (res.status === 401) {
+          await logout();
+          return;
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (err) {
+          console.error("Risposta non valida dal server:", err);
+          alert("Errore: risposta inattesa dal server. Probabilmente sessione scaduta.");
+          await logout();
+          return;
+        }
+
+        const select = document.getElementById("categoryFilter");
+        const current = select.value;
+
+        select.innerHTML = `<option value="">Tutte le categorie</option>`;
+        data.sort().forEach(cat => {
+          const option = document.createElement("option");
+          option.value = cat;
+          option.textContent = cat;
+          if (cat === current) option.selected = true;
+          select.appendChild(option);
+        });
+      } finally {
+        stopLoading();
+      }
+    }
+
+    async function fetchSheets(category = '') {
+      startLoading();
+      try {
+        const query = category ? `&category=${encodeURIComponent(category)}` : '';
+        let res;
+        try {
+          res = await fetch(`/app/mentalus/api/text_sheets.php?action=view${query}`, { credentials: 'include' });
+        } catch (err) {
+          console.error("Errore di rete:", err);
+          alert("Errore di connessione al server.");
+          return;
+        }
+
+        if (res.status === 401) {
+          await logout();
+          return;
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (err) {
+          console.error("Risposta non valida dal server:", err);
+          alert("Errore: risposta inattesa dal server. Probabilmente sessione scaduta.");
+          await logout();
+          return;
+        }
+
+        const container = document.getElementById("sheetList");
+        const empty = document.getElementById("emptyState");
+        container.innerHTML = "";
+
+        if (!Array.isArray(data) || data.length === 0) {
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+
+        for (const sheet of data) {
+          const card = document.createElement("div");
+          card.className = "bg-slate-800 rounded-xl border border-slate-700 p-4 shadow-sm hover:shadow transition flex flex-col";
+
+          // Header
+          const header = document.createElement("div");
+          header.className = "flex items-start justify-between gap-3";
+
+          const meta = document.createElement("div");
+
+          const titleRow = document.createElement("div");
+          titleRow.className = "flex items-center gap-2 flex-wrap";
+
+          const link = document.createElement("a");
+          link.href = `/app/mentalus/dashboard/sheet?id=${sheet.id}`;
+          link.className = "text-base font-semibold text-blue-300 hover:underline";
+          link.textContent = sheet.titolo;
+          titleRow.appendChild(link);
+
+          if (sheet.category) {
+            const badge = document.createElement("span");
+            badge.className = "text-xs bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded-full font-medium border border-blue-800";
+            badge.textContent = sheet.category;
+            titleRow.appendChild(badge);
+          }
+          meta.appendChild(titleRow);
+
+          const date = new Date(sheet.data_creazione);
+          const createdAt = document.createElement("p");
+          createdAt.className = "text-xs text-slate-400 mt-1";
+          createdAt.textContent = `Creato il ${date.toLocaleDateString()} alle ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          meta.appendChild(createdAt);
+
+          const menuWrapper = document.createElement("div");
+          menuWrapper.className = "relative";
+
+          const menuBtn = document.createElement("button");
+          menuBtn.textContent = "⋮";
+          menuBtn.className = "text-slate-300 hover:text-slate-100 text-xl px-2 rounded-md";
+          menuBtn.onclick = () => dropdown.classList.toggle("hidden");
+
+          const dropdown = document.createElement("div");
+          dropdown.className = "absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-lg hidden z-20 overflow-hidden";
+          dropdown.innerHTML = `
+            <button class="block w-full text-left px-4 py-2 hover:bg-slate-700 text-sm" data-action="open">Apri</button>
+            <button class="block w-full text-left px-4 py-2 hover:bg-slate-700 text-sm" data-action="category">Modifica categoria</button>
+            <button class="block w-full text-left px-4 py-2 hover:bg-red-900/40 text-sm text-red-300" data-action="delete">Elimina</button>
+          `;
+
+          dropdown.querySelector('[data-action="open"]').onclick = () => window.location.href = `/app/mentalus/dashboard/sheet?id=${sheet.id}`;
+          dropdown.querySelector('[data-action="category"]').onclick = () => {
+            categoryTarget = sheet;
+            document.getElementById("modal-cat-input").value = sheet.category || '';
+            openModal("modal-category");
+            dropdown.classList.add("hidden");
+          };
+          dropdown.querySelector('[data-action="delete"]').onclick = () => {
+            deleteTarget = sheet;
+            openModal("modal-overlay");
+            dropdown.classList.add("hidden");
+          };
+
+          menuWrapper.appendChild(menuBtn);
+          menuWrapper.appendChild(dropdown);
+
+          header.appendChild(meta);
+          header.appendChild(menuWrapper);
+          card.appendChild(header);
+
+          container.appendChild(card);
+        }
+
+        // Chiudi dropdown cliccando fuori
+        document.addEventListener('click', (e) => {
+          document.querySelectorAll('#sheetList [class*="absolute right-0"]')
+            .forEach(dd => { if (!dd.parentElement.contains(e.target)) dd.classList.add('hidden'); });
+        });
+      } finally {
+        stopLoading();
+      }
+    }
+
+    async function logout() {
+      await fetch('/app/mentalus/api/logout.php', { credentials: 'include' });
+      window.location.href = "/app/mentalus/";
+    }
+
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+
+      await withLoader(async () => {
+        const res = await fetch('/app/mentalus/api/text_sheets.php?action=add', {
+          method: 'POST',
+          body: form,
+          credentials: 'include'
+        });
+
+        let data = {};
+        try { data = await res.json(); } catch (_) {}
+
+        if (res.status === 401) {
+          await logout();
+          return;
+        }
+
+        if (res.ok && data.id) {
+          window.location.href = `/app/mentalus/dashboard/sheet?id=${data.id}`;
+        } else {
+          alert("Errore durante la creazione del foglio.");
+        }
+      });
+    });
+
+    document.getElementById("modal-confirm").addEventListener("click", async () => {
+      if (!deleteTarget) return;
+
+      await withLoader(async () => {
+        const form = new FormData();
+        form.append("id", deleteTarget.id);
+        const res = await fetch('/app/mentalus/api/text_sheets.php?action=remove', {
+          method: 'POST',
+          credentials: 'include',
+          body: form
+        });
+        if (res.status === 401) { await logout(); return; }
+
+        closeModal("modal-overlay");
+        await fetchAllCategories();
+        const current = document.getElementById("categoryFilter").value;
+        await fetchSheets(current);
+      });
+    });
+
+    document.getElementById("modal-cancel").addEventListener("click", () => {
+      closeModal("modal-overlay");
+    });
+
+    document.getElementById("modal-cat-confirm").addEventListener("click", async () => {
+      if (!categoryTarget) return;
+
+      await withLoader(async () => {
+        const nuova = document.getElementById("modal-cat-input").value;
+        const form = new FormData();
+        form.append("id", categoryTarget.id);
+        form.append("titolo", categoryTarget.titolo);
+        form.append("category", nuova);
+
+        const res = await fetch('/app/mentalus/api/text_sheets.php?action=edit', {
+          method: 'POST',
+          credentials: 'include',
+          body: form
+        });
+        if (res.status === 401) { await logout(); return; }
+
+        closeModal("modal-category");
+        await fetchAllCategories();
+        const current = document.getElementById("categoryFilter").value;
+        await fetchSheets(current);
+      });
+    });
+
+    document.getElementById("modal-cat-cancel").addEventListener("click", () => {
+      closeModal("modal-category");
+    });
+
+    // Init: mostra loader finché categorie + lista non sono pronte
+    withLoader(async () => {
+      await fetchAllCategories();
+      const current = document.getElementById("categoryFilter").value;
+      await fetchSheets(current);
+    });
+  </script>
+</body>
+</html>

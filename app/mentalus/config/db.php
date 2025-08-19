@@ -20,9 +20,9 @@ loadEnv(__DIR__ . '/.env');
 $openai_api_key = $_ENV['OPENAI_API_KEY'] ?? null;
 
 // Configurazione DB
-$host = 'localhost:3306/phpmyadmin';
-$db = 'mentalus';
-$user = 'root';
+$host = '';
+$db = '';
+$user = '';
 $pass = '';
 
 // Connessione

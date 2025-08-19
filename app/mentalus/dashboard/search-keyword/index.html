@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cerca parole chiave | Mentalus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100">
+
+  <!-- App layout: header fisso + main scrollabile -->
+  <div class="min-h-screen grid grid-rows-[auto,1fr] overflow-hidden">
+
+    <!-- Navbar -->
+    <header class="row-start-1 row-end-2 sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+          <a href="/app/mentalus/dashboard" class="flex items-center gap-2">
+            <span class="text-2xl font-extrabold tracking-tight">Mentalus</span>
+          </a>
+
+          <nav class="hidden md:flex items-center gap-3">
+            <a href="/app/mentalus/dashboard" class="px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700">Dashboard</a>
+            <a href="/app/mentalus/dashboard/search-keyword" class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">Cerca parole chiave</a>
+            <button id="logoutBtn"
+              class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Logout</button>
+          </nav>
+
+          <button id="menuBtn" class="md:hidden px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700" aria-label="Apri menu">
+            ☰
+          </button>
+        </div>
+        <!-- Mobile menu -->
+        <div id="mobileMenu" class="md:hidden hidden pt-2 pb-3 space-y-1">
+          <a href="/app/mentalus/dashboard" class="block px-3 py-2 rounded-lg hover:bg-slate-800 border border-slate-700">Dashboard</a>
+          <a href="/app/mentalus/dashboard/search-keyword" class="block px-3 py-2 rounded-lg bg-slate-800 border border-slate-700">Cerca parole chiave</a>
+          <button id="logoutBtnMobile" class="w-full text-left px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenuto: unico contenitore scrollabile -->
+    <main class="row-start-2 row-end-3 overflow-y-auto">
+      <div class="max-w-7xl mx-auto px-4 py-8">
+        <section class="mb-6">
+          <h1 class="text-3xl font-bold">Ricerca per parola chiave</h1>
+          <p class="text-slate-400">Cerca tra i paragrafi e genera un testo riassuntivo con l'AI.</p>
+        </section>
+
+        <!-- Barra di ricerca -->
+        <section class="mb-6">
+          <div class="flex flex-col sm:flex-row items-stretch gap-3">
+            <input id="keywordInput" type="text" placeholder="Inserisci parola chiave"
+                  class="flex-1 p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <button id="searchBtn"
+              class="px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">
+              Cerca
+            </button>
+          </div>
+        </section>
+
+        <!-- Layout risultati + testo -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Lista risultati -->
+          <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg font-semibold">Risultati</h2>
+              <span id="resultCount" class="text-sm text-slate-400"></span>
+            </div>
+            <ul id="resultsList" class="space-y-2 text-sm text-slate-200">
+              <li class="text-slate-400 italic">Nessuna ricerca effettuata.</li>
+            </ul>
+          </div>
+
+          <!-- Testo generato -->
+          <div class="lg:col-span-2 bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-lg font-semibold">Testo generato</h2>
+              <button id="copyBtn" class="text-sm px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-700">Copia</button>
+            </div>
+            <div id="generatedText" class="whitespace-pre-wrap leading-relaxed text-slate-100"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Loader a schermo intero -->
+  <div id="pageLoader"
+       class="fixed inset-0 z-[999] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
+    <div class="flex flex-col items-center gap-4">
+      <div class="h-10 w-10 rounded-full border-4 border-slate-600 border-t-white animate-spin" aria-hidden="true"></div>
+      <p class="text-slate-200 text-sm" role="status" aria-live="polite">Caricamento…</p>
+    </div>
+  </div>
+
+  <script>
+    // --- UI base
+    document.getElementById("menuBtn")?.addEventListener("click", () => {
+      document.getElementById("mobileMenu")?.classList.toggle("hidden");
+    });
+
+    // --- Loader helpers (reference counting)
+    const pageLoaderEl = document.getElementById('pageLoader');
+    let __pendingOps = 0;
+    function startLoading() {
+      __pendingOps++;
+      pageLoaderEl.classList.remove('hidden');
+    }
+    function stopLoading() {
+      __pendingOps = Math.max(0, __pendingOps - 1);
+      if (__pendingOps === 0) pageLoaderEl.classList.add('hidden');
+    }
+    function withLoader(promiseOrFn) {
+      startLoading();
+      try {
+        const p = typeof promiseOrFn === 'function' ? promiseOrFn() : promiseOrFn;
+        return Promise.resolve(p).finally(stopLoading);
+      } catch (e) {
+        stopLoading();
+        throw e;
+      }
+    }
+
+    // --- Auth utils
+    async function logout() {
+      try {
+        await fetch('/app/mentalus/api/logout.php', { credentials: 'include' });
+      } finally {
+        window.location.href = "/app/mentalus/";
+      }
+    }
+    async function checkLogin() {
+      startLoading();
+      try {
+        const res = await fetch('/app/mentalus/api/check_login.php', { credentials: 'include' });
+        if (res.status === 401) { await logout(); return false; }
+        if (!res.ok) { alert("Errore nel controllo autenticazione."); await logout(); return false; }
+        return true;
+      } catch (err) {
+        console.error("Errore di rete (check login):", err);
+        alert("Errore di connessione al server.");
+        await logout();
+        return false;
+      } finally {
+        stopLoading();
+      }
+    }
+
+    // --- Ricerca
+    async function handleSearch() {
+      const keyword = document.getElementById("keywordInput").value.trim();
+      if (!keyword) return alert("Inserisci una parola chiave valida.");
+
+      // Stato "loading" in UI
+      document.getElementById("resultsList").innerHTML =
+        `<li class="text-slate-400 italic">Caricamento risultati...</li>`;
+      document.getElementById("generatedText").innerHTML =
+        `<p class="animate-pulse text-slate-400">Generazione del testo in corso...</p>`;
+      document.getElementById("resultCount").textContent = "";
+
+      let res;
+      try {
+        res = await fetch(
+          `/app/mentalus/api/keywords.php?action=search&query=${encodeURIComponent(keyword)}`,
+          { credentials: 'include' }
+        );
+      } catch (err) {
+        console.error(err);
+        document.getElementById("resultsList").innerHTML =
+          `<li class="text-red-400 italic">Errore di connessione.</li>`;
+        document.getElementById("generatedText").innerHTML = '';
+        return;
+      }
+
+      if (res.status === 401) { await logout(); return; }
+      if (!res.ok) {
+        document.getElementById("resultsList").innerHTML =
+          `<li class="text-red-400 italic">Errore durante la ricerca (${res.status}).</li>`;
+        document.getElementById("generatedText").innerHTML = '';
+        return;
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error("JSON non valido dalla ricerca:", err);
+        document.getElementById("resultsList").innerHTML =
+          `<li class="text-red-400 italic">Risposta non valida dal server.</li>`;
+        document.getElementById("generatedText").innerHTML = '';
+        return;
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById("resultsList").innerHTML =
+          `<li class="text-slate-400 italic">Nessun risultato trovato.</li>`;
+        document.getElementById("generatedText").innerHTML = '';
+        document.getElementById("resultCount").textContent = "0 risultati";
+        return;
+      }
+
+      renderResults(data);
+      document.getElementById("resultCount").textContent = `${data.length} risultati`;
+
+      // Generazione AI wrappata nel loader
+      await withLoader(generateTextWithAI(data));
+    }
+
+    function renderResults(results) {
+      const container = document.getElementById("resultsList");
+      container.innerHTML = "";
+
+      results.forEach(r => {
+        const li = document.createElement("li");
+        li.className = "p-3 rounded-lg border border-slate-700 hover:bg-slate-700/60";
+        const title = document.createElement("div");
+        title.className = "font-medium text-slate-100";
+        title.textContent = r.sheet_title || "Foglio";
+        const desc = document.createElement("div");
+        desc.className = "text-slate-300";
+        desc.textContent = r.descrizione;
+
+        const actions = document.createElement("div");
+        actions.className = "mt-2";
+        if (r.sheet_id) {
+          const a = document.createElement("a");
+          a.href = `/app/mentalus/dashboard/sheet?id=${r.sheet_id}`;
+          a.className = "text-blue-300 hover:underline text-sm";
+          a.textContent = "Apri foglio";
+          actions.appendChild(a);
+        }
+
+        li.appendChild(title);
+        li.appendChild(desc);
+        li.appendChild(actions);
+        container.appendChild(li);
+      });
+    }
+
+    async function generateTextWithAI(paragraphs) {
+      const descrizioni = paragraphs.map(item => item.descrizione).join('\n\n');
+
+      let res;
+      try {
+        res = await fetch('/app/mentalus/api/ai_generate.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ input: descrizioni })
+        });
+      } catch (err) {
+        console.error(err);
+        document.getElementById("generatedText").innerHTML =
+          '<p class="text-red-400 italic">Errore di connessione durante la generazione.</p>';
+        return;
+      }
+
+      if (res.status === 401) { await logout(); return; }
+      if (!res.ok) {
+        document.getElementById("generatedText").innerHTML =
+          `<p class="text-red-400 italic">Errore nella generazione AI (${res.status}).</p>`;
+        return;
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error("JSON non valido dalla generazione AI:", err);
+        document.getElementById("generatedText").innerHTML =
+          '<p class="text-red-400 italic">Risposta AI non valida.</p>';
+        return;
+      }
+
+      document.getElementById("generatedText").innerHTML =
+        data.text || '<p class="text-slate-400 italic">Nessun testo generato.</p>';
+    }
+
+    // --- Bootstrap on-load con controllo login
+    document.addEventListener("DOMContentLoaded", async () => {
+      // Bind logout (desktop + mobile)
+      document.getElementById("logoutBtn")?.addEventListener("click", () => withLoader(logout()));
+      document.getElementById("logoutBtnMobile")?.addEventListener("click", () => withLoader(logout()));
+
+      const loggedIn = await checkLogin();
+      if (!loggedIn) return;
+
+      // Solo se loggato → abilito listeners e bootstrap ricerca
+      document.getElementById("searchBtn").addEventListener("click", () => withLoader(handleSearch()));
+      document.getElementById("keywordInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") withLoader(handleSearch());
+      });
+      document.getElementById("copyBtn").addEventListener("click", () => {
+        const text = document.getElementById("generatedText").innerText.trim();
+        if (text) navigator.clipboard.writeText(text);
+      });
+
+      // Precompila da ?q= e lancia subito la ricerca
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q) {
+        document.getElementById("keywordInput").value = q;
+        withLoader(handleSearch());
+      }
+    });
+  </script>
+</body>
+</html>

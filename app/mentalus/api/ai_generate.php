@@ -1,5 +1,5 @@
 <?php
-include 'config.php'; // qui carichi la OPENAI_API_KEY dal .env
+include '../config/db.php'; // qui carichi la OPENAI_API_KEY dal .env
 
 header('Content-Type: application/json');
 
@@ -29,10 +29,8 @@ $input
 
 1. Genera un testo coerente e completo che **sintetizzi**, **ampli** e **arricchisca** i contenuti.  
 2. Se necessario, aggiungi informazioni aggiuntive rilevanti per migliorare la comprensione.  
-3. Utilizza il **grassetto** con i tag HTML `<b>` per evidenziare concetti chiave.  
-4. Utilizza il **corsivo** con i tag HTML `<i>` per termini tecnici, definizioni o esempi.  
-5. Separa i paragrafi andando **due volte a capo** (`\n\n`) per una buona leggibilità.  
-6. Scrivi in italiano corretto e con tono chiaro e ordinato.
+3. Separa i paragrafi andando **due volte a capo** (`\n\n`) per una buona leggibilità.  
+4. Scrivi in italiano corretto e con tono chiaro e ordinato.
 
 Restituisci solo il testo generato, **senza spiegazioni** o note aggiuntive.
 EOT
@@ -57,8 +55,6 @@ curl_close($ch);
 
 $json = json_decode($response, true);
 $text = $json['choices'][0]['message']['content'] ?? '';
-
-file_put_contents('debug_openai_response.json', $response);
 
 echo json_encode(['text' => $text]);
 ?>
